@@ -22,4 +22,8 @@ export const orderService = {
   getOrderDetail(orderId) {
     return axiosClient.get(`/orders/${orderId}`);
   },
+
+  cancelMyOrder(orderId, reason) {
+    return axiosClient.post(`/orders/${orderId}/cancel`, reason ? { reason } : {});
+  },
 };

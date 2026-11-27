@@ -10,6 +10,7 @@ import {
 } from '../components/common/Icons';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import axiosClient from '../services/axiosClient';
 import { orderService } from '../services/orderService';
 import { userService } from '../services/userService';
 import { formatCurrencyVnd, isValidEmail, resolveImageUrl } from '../utils/formatters';
@@ -62,6 +63,11 @@ export default function ProfilePage() {
   // Chi tiết 1 đơn hàng khi bấm "Xem chi tiết" hoặc điều hướng từ Checkout
   const [orderDetail, setOrderDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Yêu cầu hủy đơn hàng khi đơn còn ở trạng thái PENDING (Chờ xác nhận)
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -204,6 +210,39 @@ export default function ProfilePage() {
       setSearchParams({});
     } else {
       setSearchParams({ tab: tabName });
+    }
+  };
+
+  const openCancelOrderModal = (order) => {
+    setCancelTarget(order);
+    setCancelReason('');
+  };
+
+  const handleConfirmCancelOrder = async (e) => {
+    e.preventDefault();
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const trimmedReason = cancelReason.trim();
+      if (typeof orderService.cancelMyOrder === 'function') {
+        await orderService.cancelMyOrder(cancelTarget.id, trimmedReason);
+      } else {
+        await axiosClient.post(
+          `/orders/${cancelTarget.id}/cancel`,
+          trimmedReason ? { reason: trimmedReason } : {}
+        );
+      }
+      toast.success(`Đã hủy đơn hàng #${cancelTarget.orderCode} thành công.`);
+      setCancelTarget(null);
+      setCancelReason('');
+      await loadOrders();
+      if (selectedOrderId && String(selectedOrderId) === String(cancelTarget.id)) {
+        await loadSingleOrder();
+      }
+    } catch (err) {
+      toast.error(err?.message || 'Không thể hủy đơn hàng này.');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -440,6 +479,7 @@ export default function ProfilePage() {
                   loading={loadingDetail}
                   onBack={() => setSearchParams({ tab: 'orders' })}
                   onRefresh={loadSingleOrder}
+                  onRequestCancel={openCancelOrderModal}
                 />
               ) : (
                 <>
@@ -533,10 +573,19 @@ export default function ProfilePage() {
                                 </p>
                               </div>
 
-                              <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap items-center gap-2.5">
                                 <span className="text-base font-extrabold text-[#F47721]">
                                   {formatCurrencyVnd(order.totalAmount)}
                                 </span>
+                                {order.status === 'PENDING' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openCancelOrderModal(order)}
+                                    className="rounded-xl border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
+                                  >
+                                    Yêu cầu hủy
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -608,21 +657,41 @@ export default function ProfilePage() {
                             )
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSearchParams({ tab: 'orders', orderId: String(order.id) })
-                          }
-                          className="text-xs font-bold text-[#F47721] hover:underline"
-                        >
-                          Chi tiết đơn →
-                        </button>
+                        <div className="flex items-center gap-3">
+                          {order.status === 'PENDING' && (
+                            <button
+                              type="button"
+                              onClick={() => openCancelOrderModal(order)}
+                              className="rounded-xl border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-600 shadow-xs transition hover:bg-red-600 hover:text-white"
+                            >
+                              Yêu cầu hủy đơn
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSearchParams({ tab: 'orders', orderId: String(order.id) })
+                            }
+                            className="text-xs font-bold text-[#F47721] hover:underline"
+                          >
+                            Chi tiết đơn →
+                          </button>
+                        </div>
                       </div>
 
                       <OrderStatusTimeline status={order.status} />
 
-                      <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-gray-600">
-                        <span>Người nhận: {order.receiverName} ({order.receiverPhone})</span>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+                        <div>
+                          <span>
+                            Người nhận: {order.receiverName} ({order.receiverPhone})
+                          </span>
+                          {order.status === 'PENDING' && (
+                            <span className="ml-2 inline-block rounded-full bg-amber-100/80 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+                              Chưa xác nhận • Có thể yêu cầu hủy
+                            </span>
+                          )}
+                        </div>
                         <span className="font-extrabold text-[#F47721]">
                           Tổng thanh toán: {formatCurrencyVnd(order.totalAmount)}
                         </span>
@@ -635,6 +704,81 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Hộp thoại Xác nhận yêu cầu hủy đơn hàng (chỉ khi đơn còn PENDING) */}
+      {cancelTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !cancelling && setCancelTarget(null)}
+        >
+          <form
+            onSubmit={handleConfirmCancelOrder}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <h2 className="text-lg font-extrabold text-[#262626]">
+              Yêu cầu hủy đơn hàng #{cancelTarget.orderCode}
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
+              Đơn hàng này đang ở trạng thái <strong>Chờ xác nhận</strong>. Sau khi hủy, số lượng
+              món ăn sẽ được hoàn lại thực đơn và đơn hàng không thể khôi phục.
+            </p>
+
+            <div className="mt-4">
+              <label className="mb-1.5 block text-xs font-bold text-[#262626]">
+                Lý do hủy đơn (không bắt buộc)
+              </label>
+              <div className="mb-2.5 flex flex-wrap gap-1.5">
+                {[
+                  'Đặt nhầm món / số lượng',
+                  'Muốn đổi địa chỉ nhận hàng',
+                  'Muốn áp mã giảm giá khác',
+                  'Thay đổi kế hoạch bữa ăn',
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCancelReason(preset)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                      cancelReason === preset
+                        ? 'border-[#F47721] bg-[#FFF8F0] text-[#F47721]'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-[#F47721]/60'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                rows={2}
+                maxLength={300}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Nhập lý do hủy đơn (nếu có)..."
+                className="fh-input resize-none text-xs"
+              />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() => setCancelTarget(null)}
+                className="rounded-xl border border-gray-200 bg-gray-100 px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-200"
+              >
+                Giữ lại đơn
+              </button>
+              <button
+                type="submit"
+                disabled={cancelling}
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelling ? 'Đang hủy đơn...' : 'Xác nhận hủy đơn'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }
@@ -682,7 +826,7 @@ function OrderStatusTimeline({ status }) {
   );
 }
 
-function OrderDetailView({ order, loading, onBack, onRefresh }) {
+function OrderDetailView({ order, loading, onBack, onRefresh, onRequestCancel }) {
   if (loading) {
     return <div className="py-12 text-center text-sm text-gray-500">Đang tải chi tiết đơn hàng...</div>;
   }
@@ -729,9 +873,20 @@ function OrderDetailView({ order, loading, onBack, onRefresh }) {
             Đặt lúc: {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : ''}
           </p>
         </div>
-        <span className={`rounded-full border px-3.5 py-1 text-xs font-bold ${meta.cls}`}>
-          {meta.label}
-        </span>
+        <div className="flex items-center gap-2.5">
+          {order.status === 'PENDING' && onRequestCancel && (
+            <button
+              type="button"
+              onClick={() => onRequestCancel(order)}
+              className="rounded-xl border border-red-300 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-600 hover:text-white"
+            >
+              Yêu cầu hủy đơn
+            </button>
+          )}
+          <span className={`rounded-full border px-3.5 py-1 text-xs font-bold ${meta.cls}`}>
+            {meta.label}
+          </span>
+        </div>
       </div>
 
       {/* Thanh theo dõi 6 trạng thái */}

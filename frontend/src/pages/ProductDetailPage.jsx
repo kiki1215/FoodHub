@@ -99,12 +99,17 @@ export default function ProductDetailPage() {
     recommendationService.trackInteraction(product.id, 'VIEW_PRODUCT');
   }, [product?.id, isAuthenticated]);
 
+  const maxOrderableQty =
+    product?.stockQuantity != null && product.stockQuantity > 0
+      ? Math.min(99, product.stockQuantity)
+      : 99;
+
   const handleDecrease = () => {
     setQuantity((prev) => Math.max(1, prev - 1));
   };
 
   const handleIncrease = () => {
-    setQuantity((prev) => Math.min(99, prev + 1));
+    setQuantity((prev) => Math.min(maxOrderableQty, prev + 1));
   };
 
   const handleAddToCartOnly = async () => {
@@ -294,12 +299,24 @@ export default function ProductDetailPage() {
                 {product.name}
               </h1>
 
-              {/* Hàng Đánh giá / Lượt bán + Giá bán VNĐ bên phải */}
+              {/* Hàng Đánh giá / Lượt bán / Tồn kho + Giá bán VNĐ bên phải */}
               <div className="mt-3 flex flex-wrap items-baseline justify-between gap-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                   <span className="font-bold text-amber-500">★ 4.8</span>
                   <span>•</span>
                   <span>Đã bán {product.soldCount ?? 0} phần</span>
+                  {product.stockQuantity != null && (
+                    <>
+                      <span>•</span>
+                      <span
+                        className={`font-semibold ${
+                          product.stockQuantity > 0 ? 'text-emerald-700' : 'text-red-600'
+                        }`}
+                      >
+                        Có sẵn {product.stockQuantity} phần
+                      </span>
+                    </>
+                  )}
                 </div>
                 <p className="text-2xl font-extrabold text-[#F47721] sm:text-3xl">
                   {formatCurrencyVnd(product.price)}
@@ -329,7 +346,7 @@ export default function ProductDetailPage() {
                   </span>
                   <button
                     type="button"
-                    disabled={!statusMeta.canOrder || quantity >= 99}
+                    disabled={!statusMeta.canOrder || quantity >= maxOrderableQty}
                     onClick={handleIncrease}
                     aria-label="Tăng số lượng"
                     className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#F47721] bg-white text-lg font-bold text-[#F47721] transition hover:bg-[#FFF8F0] disabled:cursor-not-allowed disabled:opacity-40"

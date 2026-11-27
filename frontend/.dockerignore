@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+.env
+.env.*
+!.env.example
+*.log
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+Dockerfile

@@ -17,6 +17,7 @@ const INITIAL_FORM = {
   name: '',
   description: '',
   price: '',
+  stockQuantity: '50',
   imageUrl: '',
   categoryId: '',
   status: 'AVAILABLE',
@@ -149,6 +150,7 @@ export default function AdminProductsPage() {
       name: prod.name || '',
       description: prod.description || '',
       price: prod.price ? String(prod.price) : '',
+      stockQuantity: prod.stockQuantity != null ? String(prod.stockQuantity) : '50',
       imageUrl: prod.imageUrl || '',
       categoryId: prod.categoryId ? String(prod.categoryId) : '',
       status: prod.status || 'AVAILABLE',
@@ -166,6 +168,16 @@ export default function AdminProductsPage() {
     const priceNum = Number(form.price);
     if (!form.price || Number.isNaN(priceNum) || priceNum < 1000) {
       next.price = 'Giá bán phải từ 1.000 VNĐ trở lên';
+    }
+    const stockNum = Number(form.stockQuantity);
+    if (
+      form.stockQuantity === '' ||
+      Number.isNaN(stockNum) ||
+      !Number.isInteger(stockNum) ||
+      stockNum < 0 ||
+      stockNum > 100000
+    ) {
+      next.stockQuantity = 'Số lượng có sẵn phải là số nguyên từ 0 đến 100.000';
     }
     if (!form.categoryId) {
       next.categoryId = 'Vui lòng chọn danh mục cho món ăn';
@@ -208,9 +220,10 @@ export default function AdminProductsPage() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         price: Number(form.price),
+        stockQuantity: Number(form.stockQuantity),
         imageUrl: form.imageUrl.trim() || null,
         categoryId: Number(form.categoryId),
-        status: form.status,
+        status: Number(form.stockQuantity) === 0 && form.status === 'AVAILABLE' ? 'OUT_OF_STOCK' : form.status,
         mealTimeTag: form.mealTimeTag || 'ALL_DAY',
       };
 
@@ -391,6 +404,7 @@ export default function AdminProductsPage() {
                     <th className="px-4 py-3.5">Tên món ăn</th>
                     <th className="px-4 py-3.5">Danh mục</th>
                     <th className="px-4 py-3.5">Giá bán</th>
+                    <th className="px-4 py-3.5 text-center">Số lượng có sẵn</th>
                     <th className="px-4 py-3.5">Trạng thái</th>
                     <th className="px-4 py-3.5 text-center">Thao tác</th>
                   </tr>
@@ -423,6 +437,19 @@ export default function AdminProductsPage() {
                         <td className="px-4 py-3.5 text-gray-700">{prod.categoryName || '—'}</td>
                         <td className="px-4 py-3.5 font-bold text-[#262626]">
                           {formatCurrencyVnd(prod.price)}
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              (prod.stockQuantity ?? 0) <= 0
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : (prod.stockQuantity ?? 0) <= 10
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                          >
+                            {prod.stockQuantity ?? 0} phần
+                          </span>
                         </td>
                         <td className="px-4 py-3.5">
                           <select
@@ -602,6 +629,42 @@ export default function AdminProductsPage() {
 
               <div>
                 <label className="mb-1 block text-xs font-bold text-[#262626]">
+                  Số lượng có sẵn *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100000"
+                  step="1"
+                  value={form.stockQuantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((p) => {
+                      const num = Number(val);
+                      let nextStatus = p.status;
+                      if (val !== '' && !Number.isNaN(num)) {
+                        if (num === 0 && p.status === 'AVAILABLE') {
+                          nextStatus = 'OUT_OF_STOCK';
+                        } else if (num > 0 && p.status === 'OUT_OF_STOCK') {
+                          nextStatus = 'AVAILABLE';
+                        }
+                      }
+                      return { ...p, stockQuantity: val, status: nextStatus };
+                    });
+                    setFormErrors((p) => ({ ...p, stockQuantity: '' }));
+                  }}
+                  placeholder="Ví dụ: 50"
+                  className={`fh-input ${formErrors.stockQuantity ? 'border-red-400' : ''}`}
+                />
+                {formErrors.stockQuantity && (
+                  <p className="mt-1 text-xs font-medium text-red-600">
+                    {formErrors.stockQuantity}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#262626]">
                   Trạng thái kinh doanh
                 </label>
                 <select
@@ -615,7 +678,7 @@ export default function AdminProductsPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-xs font-bold text-[#262626]">
                   Khung giờ phục vụ (AI Tag)
                 </label>
