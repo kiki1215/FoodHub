@@ -1,0 +1,81 @@
+# ==============================================================================
+# FOODHUB - .gitignore
+# ==============================================================================
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+secrets/
+
+# --- Java / Maven / Spring Boot ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+*.jar
+*.war
+*.ear
+*.class
+hs_err_pid*
+replay_pid*
+
+# --- Node.js / Frontend (Vite + React) ---
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.local
+
+# --- Python / AI Service ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+*.pkl
+*.joblib
+
+# --- Docker / Database Local Data ---
+mysql_data/
+*.sql.bak
+*.dump
+
+# --- IDE & Editors ---
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+!.vscode/extensions.json
+.project
+.classpath
+.settings/
+.factorypath
+
+# --- OS & Temp Files ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
