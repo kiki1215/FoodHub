@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+    background-color: #FFF8F0;
+    color: #262626;
+  }
+}
+
+@layer components {
+  .fh-input {
+    @apply w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-[#262626] placeholder-gray-400 transition duration-150 focus:border-[#F47721] focus:outline-none focus:ring-2 focus:ring-[#F47721]/20;
+  }
+
+  .fh-btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-[#F47721] px-6 py-3 text-sm font-bold text-white shadow-sm transition duration-150 hover:bg-[#E06510] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .fh-btn-outline {
+    @apply inline-flex items-center justify-center rounded-xl border border-[#F47721] bg-white px-4 py-2 text-sm font-semibold text-[#F47721] transition duration-150 hover:bg-[#FFF8F0] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+}
