@@ -1,6 +1,6 @@
 # ==============================================================================
 # FOODHUB - DOCKER COMPOSE
-# Giai đoạn 3: MySQL + User Service + Menu Service + API Gateway
+# Giai đoạn 4: MySQL + User + Menu + Cart + Order + API Gateway
 # ==============================================================================
 
 services:
@@ -51,6 +51,7 @@ services:
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
       DEFAULT_ADMIN_NAME: ${DEFAULT_ADMIN_NAME:-Quản trị viên FOODHUB}
+      ORDER_SERVICE_URL: http://order-service:8084
     ports:
       - "${USER_SERVICE_PORT:-8081}:8081"
     networks:
@@ -81,6 +82,59 @@ services:
     networks:
       - foodhub-network
 
+  cart-service:
+    build:
+      context: ./backend/cart-service
+      dockerfile: Dockerfile
+    container_name: foodhub-cart-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      menu-service:
+        condition: service_started
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      CART_SERVICE_PORT: ${CART_SERVICE_PORT:-8083}
+      MYSQL_HOST: ${MYSQL_DOCKER_HOST:-mysql}
+      MYSQL_PORT: 3306
+      CART_DB_NAME: ${CART_DB_NAME:-cart_db}
+      CART_DB_USER: ${CART_DB_USER:-cart_svc}
+      CART_DB_PASSWORD: ${CART_DB_PASSWORD}
+      MENU_SERVICE_URL: http://menu-service:8082
+    ports:
+      - "${CART_SERVICE_PORT:-8083}:8083"
+    networks:
+      - foodhub-network
+
+  order-service:
+    build:
+      context: ./backend/order-service
+      dockerfile: Dockerfile
+    container_name: foodhub-order-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      cart-service:
+        condition: service_started
+      menu-service:
+        condition: service_started
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      ORDER_SERVICE_PORT: ${ORDER_SERVICE_PORT:-8084}
+      MYSQL_HOST: ${MYSQL_DOCKER_HOST:-mysql}
+      MYSQL_PORT: 3306
+      ORDER_DB_NAME: ${ORDER_DB_NAME:-order_db}
+      ORDER_DB_USER: ${ORDER_DB_USER:-order_svc}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      CART_SERVICE_URL: http://cart-service:8083
+      MENU_SERVICE_URL: http://menu-service:8082
+    ports:
+      - "${ORDER_SERVICE_PORT:-8084}:8084"
+    networks:
+      - foodhub-network
+
   api-gateway:
     build:
       context: ./backend/api-gateway
@@ -90,11 +144,15 @@ services:
     depends_on:
       - user-service
       - menu-service
+      - cart-service
+      - order-service
     environment:
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
       API_GATEWAY_PORT: ${API_GATEWAY_PORT:-8080}
       USER_SERVICE_URL: http://user-service:8081
       MENU_SERVICE_URL: http://menu-service:8082
+      CART_SERVICE_URL: http://cart-service:8083
+      ORDER_SERVICE_URL: http://order-service:8084
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
     ports:

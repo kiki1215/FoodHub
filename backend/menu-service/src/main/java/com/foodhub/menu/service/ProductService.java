@@ -172,6 +172,22 @@ public class ProductService {
         return ProductResponse.fromEntity(productRepository.save(product));
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getMenuStats() {
+        long totalProducts = productRepository.count();
+        long availableProducts = productRepository.countByStatus(ProductStatus.AVAILABLE);
+        long outOfStockProducts = productRepository.countByStatus(ProductStatus.OUT_OF_STOCK);
+        long stoppedProducts = productRepository.countByStatus(ProductStatus.STOPPED);
+
+        java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
+        stats.put("totalProducts", totalProducts);
+        stats.put("availableProducts", availableProducts);
+        stats.put("outOfStockProducts", outOfStockProducts);
+        stats.put("stoppedProducts", stoppedProducts);
+        stats.put("totalCategories", categoryService.searchCategories(null).size());
+        return stats;
+    }
+
     private String resolveTimeSlot(String rawTimeSlot) {
         String upper = rawTimeSlot.toUpperCase();
         if ("CURRENT".equals(upper)) {

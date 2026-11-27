@@ -19,6 +19,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     long countByCategoryId(Long categoryId);
 
+    long countByStatus(ProductStatus status);
+
     @EntityGraph(attributePaths = "category")
     Optional<Product> findWithCategoryById(Long id);
 

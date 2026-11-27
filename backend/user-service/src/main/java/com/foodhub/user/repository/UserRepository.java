@@ -17,6 +17,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByRoleAndActiveTrue(Role role);
 
+    long countByActiveTrue();
+
+    long countByRole(Role role);
+
     @Query("""
             SELECT u FROM User u
             WHERE (:keyword IS NULL OR :keyword = ''

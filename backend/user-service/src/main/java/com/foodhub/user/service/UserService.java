@@ -18,13 +18,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final OrderClient orderClient;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       OrderClient orderClient) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.orderClient = orderClient;
     }
 
     @Transactional
@@ -192,7 +195,29 @@ public class UserService {
             throw new AppException(HttpStatus.BAD_REQUEST, "Không thể xóa quản trị viên hoạt động cuối cùng của hệ thống");
         }
 
+        // Kiểm tra qua Order Service: chặn xóa nếu người dùng còn đơn hàng chưa hoàn tất
+        if (orderClient.hasUnfinishedOrders(targetUserId)) {
+            throw new AppException(HttpStatus.CONFLICT,
+                    "Không thể xóa tài khoản vì người dùng vẫn còn đơn hàng chưa hoàn tất");
+        }
+
         userRepository.delete(target);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getUserStats() {
+        long total = userRepository.count();
+        long active = userRepository.countByActiveTrue();
+        long customers = userRepository.countByRole(Role.CUSTOMER);
+        long admins = userRepository.countByRole(Role.ADMIN);
+
+        java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
+        stats.put("totalUsers", total);
+        stats.put("activeUsers", active);
+        stats.put("lockedUsers", total - active);
+        stats.put("customerCount", customers);
+        stats.put("adminCount", admins);
+        return stats;
     }
 
     private User findUserOrThrow(Long userId) {

@@ -1,0 +1,26 @@
+server:
+  port: ${CART_SERVICE_PORT:8083}
+
+spring:
+  application:
+    name: cart-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${CART_DB_NAME:cart_db}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${CART_DB_USER:cart_svc}
+    password: ${CART_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+app:
+  services:
+    menu-url: ${MENU_SERVICE_URL:http://localhost:8082}
+
+logging:
+  level:
+    com.foodhub.cart: INFO

@@ -26,6 +26,8 @@ app:
     email: ${DEFAULT_ADMIN_EMAIL:}
     password: ${DEFAULT_ADMIN_PASSWORD:}
     name: ${DEFAULT_ADMIN_NAME:Quản trị viên FOODHUB}
+  services:
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8084}
 
 logging:
   level:
