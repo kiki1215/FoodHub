@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { SearchIcon } from '../../components/common/Icons';
 import { useToast } from '../../hooks/useToast';
 import { adminService } from '../../services/adminService';
+import axiosClient from '../../services/axiosClient';
 import { formatCurrencyVnd } from '../../utils/formatters';
 
 const STATUS_META = {
@@ -85,9 +86,11 @@ export default function AdminOrdersPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
+      const isCancelRequestFilter = statusFilter === 'CANCEL_REQUESTED';
       const res = await adminService.getOrders({
         orderCode: orderCode || undefined,
-        status: statusFilter || undefined,
+        status: !isCancelRequestFilter && statusFilter ? statusFilter : undefined,
+        cancelRequested: isCancelRequestFilter ? true : undefined,
         page,
         size: PAGE_SIZE,
       });
@@ -153,6 +156,37 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleAdminCancelDecision = async (approve) => {
+    if (!selectedOrder) return;
+    setUpdatingStatus(true);
+    try {
+      const res =
+        typeof adminService.handleCancelRequest === 'function'
+          ? await adminService.handleCancelRequest(selectedOrder.id, approve)
+          : await axiosClient.post(`/admin/orders/${selectedOrder.id}/cancel-request`, { approve });
+      if (res?.data) {
+        setSelectedOrder(res.data);
+        setNextStatus(res.data.status);
+        setOrderPage((prev) => ({
+          ...prev,
+          content: prev.content.map((o) => (o.id === res.data.id ? res.data : o)),
+        }));
+      }
+      toast.success(
+        approve
+          ? `Đã xác nhận hủy đơn #${selectedOrder.orderCode}.`
+          : `Đã từ chối yêu cầu hủy đơn #${selectedOrder.orderCode}.`
+      );
+      if (statusFilter === 'CANCEL_REQUESTED') {
+        fetchOrders();
+      }
+    } catch (err) {
+      toast.error(err?.message || 'Không thể xử lý yêu cầu hủy đơn.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const currentMeta = selectedOrder
     ? STATUS_META[selectedOrder.status] || STATUS_META.PENDING
     : null;
@@ -194,9 +228,10 @@ export default function AdminOrdersPage() {
             setStatusFilter(e.target.value);
             setPage(0);
           }}
-          className="fh-input w-full sm:w-52"
+          className="fh-input w-full sm:w-56"
         >
           <option value="">Trạng thái: Tất cả</option>
+          <option value="CANCEL_REQUESTED">⚠ Yêu cầu hủy chờ duyệt</option>
           {Object.entries(STATUS_META).map(([key, meta]) => (
             <option key={key} value={key}>
               {meta.label}
@@ -273,11 +308,18 @@ export default function AdminOrdersPage() {
                             {formatCurrencyVnd(ord.totalAmount)}
                           </td>
                           <td className="px-4 py-3.5">
-                            <span
-                              className={`inline-block rounded-lg border px-2.5 py-1 text-xs font-bold ${st.cls}`}
-                            >
-                              {st.label}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`inline-block rounded-lg border px-2.5 py-1 text-xs font-bold ${st.cls}`}
+                              >
+                                {st.label}
+                              </span>
+                              {ord.cancelRequested && ord.status === 'PENDING' && (
+                                <span className="inline-block rounded-lg border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] font-extrabold text-red-600">
+                                  ⚠ Yêu cầu hủy
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -407,6 +449,42 @@ export default function AdminOrdersPage() {
                   {selectedOrder.note || 'Không có ghi chú thêm'}
                 </p>
               </div>
+
+              {/* Hộp xử lý Yêu cầu hủy đơn từ khách hàng (chờ Admin xác nhận) */}
+              {selectedOrder.cancelRequested && selectedOrder.status === 'PENDING' && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50/90 p-4">
+                  <p className="text-xs font-extrabold uppercase text-red-700">
+                    ⚠ Khách hàng đang yêu cầu hủy đơn
+                  </p>
+                  <p className="mt-1 text-xs text-red-900">
+                    <strong>Lý do:</strong>{' '}
+                    {selectedOrder.cancelReason || 'Khách hàng không nhập lý do cụ thể'}
+                  </p>
+                  {selectedOrder.cancelRequestedAt && (
+                    <p className="mt-0.5 text-[11px] text-red-700/80">
+                      Gửi lúc: {new Date(selectedOrder.cancelRequestedAt).toLocaleString('vi-VN')}
+                    </p>
+                  )}
+                  <div className="mt-3 grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      disabled={updatingStatus}
+                      onClick={() => handleAdminCancelDecision(false)}
+                      className="rounded-xl border border-gray-300 bg-white py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      Từ chối hủy
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingStatus}
+                      onClick={() => handleAdminCancelDecision(true)}
+                      className="rounded-xl bg-red-600 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {updatingStatus ? 'Đang xử lý...' : 'Xác nhận hủy đơn'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Cập nhật trạng thái hợp lệ */}
               <div className="mt-5 border-t border-gray-100 pt-4">

@@ -101,4 +101,8 @@ export const adminService = {
   updateOrderStatus(id, status) {
     return axiosClient.patch(`/admin/orders/${id}/status`, { status });
   },
+
+  handleCancelRequest(id, approve) {
+    return axiosClient.post(`/admin/orders/${id}/cancel-request`, { approve });
+  },
 };

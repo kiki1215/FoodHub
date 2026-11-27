@@ -244,11 +244,18 @@ export default function AdminDashboardPage() {
                         {formatCurrencyVnd(ord.totalAmount)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span
-                          className={`inline-block rounded-lg border px-2.5 py-1 text-xs font-bold ${st.badge}`}
-                        >
-                          {st.label}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-block rounded-lg border px-2.5 py-1 text-xs font-bold ${st.badge}`}
+                          >
+                            {st.label}
+                          </span>
+                          {ord.cancelRequested && ord.status === 'PENDING' && (
+                            <span className="inline-block rounded-lg border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] font-extrabold text-red-600">
+                              ⚠ Yêu cầu hủy
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

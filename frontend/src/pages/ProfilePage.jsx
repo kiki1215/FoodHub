@@ -232,7 +232,9 @@ export default function ProfilePage() {
           trimmedReason ? { reason: trimmedReason } : {}
         );
       }
-      toast.success(`Đã hủy đơn hàng #${cancelTarget.orderCode} thành công.`);
+      toast.success(
+        `Đã gửi yêu cầu hủy đơn #${cancelTarget.orderCode}. Vui lòng chờ quản trị viên xác nhận.`
+      );
       setCancelTarget(null);
       setCancelReason('');
       await loadOrders();
@@ -577,7 +579,12 @@ export default function ProfilePage() {
                                 <span className="text-base font-extrabold text-[#F47721]">
                                   {formatCurrencyVnd(order.totalAmount)}
                                 </span>
-                                {order.status === 'PENDING' && (
+                                {order.status === 'PENDING' && order.cancelRequested && (
+                                  <span className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">
+                                    ⏳ Chờ Admin xác nhận hủy
+                                  </span>
+                                )}
+                                {order.status === 'PENDING' && !order.cancelRequested && (
                                   <button
                                     type="button"
                                     onClick={() => openCancelOrderModal(order)}
@@ -658,7 +665,12 @@ export default function ProfilePage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          {order.status === 'PENDING' && (
+                          {order.status === 'PENDING' && order.cancelRequested && (
+                            <span className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">
+                              ⏳ Đang chờ Admin xác nhận hủy
+                            </span>
+                          )}
+                          {order.status === 'PENDING' && !order.cancelRequested && (
                             <button
                               type="button"
                               onClick={() => openCancelOrderModal(order)}
@@ -681,12 +693,31 @@ export default function ProfilePage() {
 
                       <OrderStatusTimeline status={order.status} />
 
+                      {order.cancelRequested && order.status === 'PENDING' && (
+                        <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900">
+                          <p className="font-bold">
+                            ⏳ Đã gửi yêu cầu hủy đơn — Đang chờ Quản trị viên xác nhận
+                          </p>
+                          {order.cancelReason && (
+                            <p className="mt-0.5 text-amber-800">
+                              Lý do gửi kèm: {order.cancelReason}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {!order.cancelRequested && order.cancelRejected && order.status !== 'CANCELLED' && (
+                        <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs text-gray-700">
+                          Yêu cầu hủy đơn trước đó đã bị từ chối, đơn hàng đang tiếp tục được xử lý.
+                        </div>
+                      )}
+
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
                         <div>
                           <span>
                             Người nhận: {order.receiverName} ({order.receiverPhone})
                           </span>
-                          {order.status === 'PENDING' && (
+                          {order.status === 'PENDING' && !order.cancelRequested && (
                             <span className="ml-2 inline-block rounded-full bg-amber-100/80 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
                               Chưa xác nhận • Có thể yêu cầu hủy
                             </span>
@@ -717,11 +748,11 @@ export default function ProfilePage() {
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
           >
             <h2 className="text-lg font-extrabold text-[#262626]">
-              Yêu cầu hủy đơn hàng #{cancelTarget.orderCode}
+              Gửi yêu cầu hủy đơn hàng #{cancelTarget.orderCode}
             </h2>
             <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
-              Đơn hàng này đang ở trạng thái <strong>Chờ xác nhận</strong>. Sau khi hủy, số lượng
-              món ăn sẽ được hoàn lại thực đơn và đơn hàng không thể khôi phục.
+              Đơn hàng này đang ở trạng thái <strong>Chờ xác nhận</strong>. Yêu cầu hủy của bạn sẽ
+              được gửi tới <strong>Quản trị viên</strong> để xem xét và xác nhận hủy đơn.
             </p>
 
             <div className="mt-4">
@@ -773,7 +804,7 @@ export default function ProfilePage() {
                 disabled={cancelling}
                 className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
               >
-                {cancelling ? 'Đang hủy đơn...' : 'Xác nhận hủy đơn'}
+                {cancelling ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu hủy'}
               </button>
             </div>
           </form>
@@ -789,7 +820,7 @@ function OrderStatusTimeline({ status }) {
   if (status === 'CANCELLED') {
     return (
       <div className="my-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
-        ✕ Trạng thái (6/6 - CANCELLED): Đơn hàng này đã bị hủy.
+        ✕  Đơn hàng này đã bị hủy.
       </div>
     );
   }
@@ -873,8 +904,13 @@ function OrderDetailView({ order, loading, onBack, onRefresh, onRequestCancel })
             Đặt lúc: {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : ''}
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
-          {order.status === 'PENDING' && onRequestCancel && (
+        <div className="flex flex-wrap items-center gap-2.5">
+          {order.status === 'PENDING' && order.cancelRequested && (
+            <span className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-1.5 text-xs font-bold text-amber-800">
+              ⏳ Chờ Admin xác nhận hủy
+            </span>
+          )}
+          {order.status === 'PENDING' && !order.cancelRequested && onRequestCancel && (
             <button
               type="button"
               onClick={() => onRequestCancel(order)}
@@ -891,6 +927,17 @@ function OrderDetailView({ order, loading, onBack, onRefresh, onRequestCancel })
 
       {/* Thanh theo dõi 6 trạng thái */}
       <OrderStatusTimeline status={order.status} />
+
+      {order.cancelRequested && order.status === 'PENDING' && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <p className="font-bold">
+            ⏳ Bạn đã gửi yêu cầu hủy đơn hàng này — Vui lòng chờ Quản trị viên xác nhận.
+          </p>
+          {order.cancelReason && (
+            <p className="mt-1 text-amber-800">Lý do hủy đã gửi: {order.cancelReason}</p>
+          )}
+        </div>
+      )}
 
       {/* Thông tin người nhận */}
       <div className="mt-4 rounded-2xl bg-[#FFF8F0] p-4 text-sm">
